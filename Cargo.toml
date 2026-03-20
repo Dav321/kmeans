@@ -6,3 +6,5 @@ license = "GPL-3.0-or-later"
 edition = "2024"
 
 [dependencies]
+ggez = "0.10.0-rc0"
+rand = "0.10.0"
