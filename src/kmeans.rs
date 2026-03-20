@@ -1,11 +1,11 @@
-use ggez::{Context, GameError};
 use ggez::event::EventHandler;
 use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, DrawMode, DrawParam, Mesh, MeshBuilder, MeshData, Rect, StrokeOptions, Text};
+use ggez::graphics::{Canvas, Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect, Text};
 use ggez::input::keyboard::{Key, KeyInput};
 use ggez::input::mouse::MouseButton;
-use ggez::winit::keyboard::{NamedKey, PhysicalKey};
-use rand::{rng, RngExt};
+use ggez::winit::keyboard::NamedKey;
+use ggez::{Context, GameError};
+use rand::{RngExt, rng};
 
 pub struct KMeans {
     points: Vec<(f32, f32)>,
@@ -45,14 +45,12 @@ impl KMeans {
         let mut smallest_index = 0;
         let mut smallest_val = 2.;
 
-        let mut i = 0;
-        for k in self.ks.iter() {
+        for (i, k) in self.ks.iter().enumerate() {
             let d = Self::distance2(point, k);
             if d < smallest_val {
                 smallest_index = i;
                 smallest_val = d;
             }
-            i+=1;
         }
         smallest_index
     }
@@ -60,33 +58,35 @@ impl KMeans {
     fn iterate(&mut self) {
         let mut k_sum: Vec<(f32, f32, f32)> = vec![(0., 0., 0.); self.ks.len()];
         for point in self.points.iter() {
-            let k = self.nearest_k(&point);
+            let k = self.nearest_k(point);
             let (x, y, n) = k_sum[k];
-            k_sum[k] = (
-                x + point.0,
-                y + point.1,
-                n + 1.
-            );
+            k_sum[k] = (x + point.0, y + point.1, n + 1.);
         }
 
-        for i in 0..self.ks.len() {
-            let (x, y, n) = k_sum[i];
+        for (i, (x, y, n)) in k_sum.iter().enumerate() {
             let x = x / n;
             let y = y / n;
-
             self.ks[i] = (x, y);
         }
     }
 
     fn build_mesh(&self, ctx: &mut Context, size: f32) -> Mesh {
-        const COLORS: [Color; 6] = [Color::GREEN, Color::BLUE, Color::RED, Color::CYAN, Color::MAGENTA, Color::YELLOW];
+        const COLORS: [Color; 6] = [
+            Color::GREEN,
+            Color::BLUE,
+            Color::RED,
+            Color::CYAN,
+            Color::MAGENTA,
+            Color::YELLOW,
+        ];
         let mut mb = MeshBuilder::new();
 
         mb.rectangle(
             DrawMode::stroke(10.),
             Rect::new(5., 5., size - 5., size - 5.),
-            Color::WHITE
-        ).expect("Failed to draw outline");
+            Color::WHITE,
+        )
+        .expect("Failed to draw outline");
         let size = size - 10.;
 
         for i in 0..self.points.len() {
@@ -98,19 +98,20 @@ impl KMeans {
                 Vec2::new(point.0 * size, point.1 * size),
                 size * 0.005,
                 1.0,
-                COLORS[k_i]
-            ).expect("Failed to paint Point");
+                COLORS[k_i],
+            )
+            .expect("Failed to paint Point");
         }
 
-        for i in 0..self.ks.len() {
-            let point = self.ks[i];
+        for (i, point) in self.ks.iter().enumerate() {
             mb.circle(
                 DrawMode::fill(),
                 Vec2::new(point.0 * size, point.1 * size),
                 size * 0.005,
                 1.0,
-                COLORS[i]
-            ).expect("Failed to paint Point");
+                COLORS[i],
+            )
+            .expect("Failed to paint Point");
         }
 
         Mesh::from_data(ctx, mb.build())
@@ -118,7 +119,7 @@ impl KMeans {
 }
 
 impl EventHandler for KMeans {
-    fn update(&mut self, ctx: &mut Context) -> Result<(), GameError> {
+    fn update(&mut self, _ctx: &mut Context) -> Result<(), GameError> {
         Ok(())
     }
 
@@ -128,11 +129,7 @@ impl EventHandler for KMeans {
         let size = w.min(h);
 
         let fps_text = format!("FPS: {:.0}", ctx.time.fps());
-        canvas.draw(
-            Text::new(fps_text)
-                .set_scale(48.),
-            Vec2::new(10., 10.)
-        );
+        canvas.draw(Text::new(fps_text).set_scale(48.), Vec2::new(10., 10.));
 
         let mesh = self.build_mesh(ctx, size);
         canvas.draw(&mesh, DrawParam::default());
@@ -140,15 +137,31 @@ impl EventHandler for KMeans {
         canvas.finish(ctx)
     }
 
-    fn key_down_event(&mut self, ctx: &mut Context, input: KeyInput, _repeated: bool) -> Result<(), GameError> {
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        input: KeyInput,
+        _repeated: bool,
+    ) -> Result<(), GameError> {
         match input.event.logical_key {
             Key::Named(NamedKey::Enter) => self.iterate(),
+            Key::Named(NamedKey::Escape) => ctx.request_quit(),
             _ => {}
         }
         Ok(())
     }
 
-    fn mouse_button_down_event(&mut self, _ctx: &mut Context, _button: MouseButton, _x: f32, _y: f32) -> Result<(), GameError> {
+    fn mouse_button_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        _button: MouseButton,
+        _x: f32,
+        _y: f32,
+    ) -> Result<(), GameError> {
         Ok(())
+    }
+
+    fn quit_event(&mut self, _ctx: &mut Context) -> Result<bool, GameError> {
+        Ok(false)
     }
 }

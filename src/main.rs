@@ -1,9 +1,9 @@
 mod kmeans;
 
-use ggez::conf::{Conf, FullscreenType};
-use ggez::ContextBuilder;
-use ggez::event::run;
 use crate::kmeans::KMeans;
+use ggez::ContextBuilder;
+use ggez::conf::{Conf, FullscreenType};
+use ggez::event::run;
 
 fn main() {
     let mut conf = Conf::new();
@@ -15,5 +15,5 @@ fn main() {
         .expect("Could not create Context!");
     let mut kmeans = KMeans::new(&mut ctx);
     kmeans.random(100, 6);
-    run(ctx, event_loop, kmeans);
+    run(ctx, event_loop, kmeans).expect("Game Crash:");
 }
