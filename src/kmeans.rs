@@ -1,3 +1,4 @@
+use crate::utils::{distance2, gen_colors, nearest_k};
 use ggez::event::EventHandler;
 use ggez::glam::Vec2;
 use ggez::graphics::{Canvas, Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect, Text};
@@ -20,45 +21,20 @@ impl KMeans {
         }
     }
 
-    pub fn random(&mut self, points: u32, ks: u32) {
+    pub fn random(&mut self, points: usize, ks: usize) {
         let mut rng = rng();
-
-        for _ in 0..points {
-            let coords = (rng.random_range(0.0..1.0), rng.random_range(0.0..1.0));
-            self.points.push(coords);
-        }
-
-        for _ in 0..ks {
-            let coords = (rng.random_range(0.0..1.0), rng.random_range(0.0..1.0));
-            self.ks.push(coords);
-        }
-    }
-
-    fn distance2(p1: &(f32, f32), p2: &(f32, f32)) -> f32 {
-        let x = p1.0 - p2.0;
-        let y = p1.1 - p2.1;
-
-        x * x + y * y
-    }
-
-    fn nearest_k(&self, point: &(f32, f32)) -> usize {
-        let mut smallest_index = 0;
-        let mut smallest_val = 2.;
-
-        for (i, k) in self.ks.iter().enumerate() {
-            let d = Self::distance2(point, k);
-            if d < smallest_val {
-                smallest_index = i;
-                smallest_val = d;
-            }
-        }
-        smallest_index
+        self.points.resize_with(self.points.len() + points, || {
+            (rng.random_range(0.0..1.0), rng.random_range(0.0..1.0))
+        });
+        self.ks.resize_with(self.ks.len() + ks, || {
+            (rng.random_range(0.0..1.0), rng.random_range(0.0..1.0))
+        });
     }
 
     fn iterate(&mut self) {
         let mut k_sum: Vec<(f32, f32, f32)> = vec![(0., 0., 0.); self.ks.len()];
         for point in self.points.iter() {
-            let k = self.nearest_k(point);
+            let k = nearest_k(&self.ks, point);
             let (x, y, n) = k_sum[k];
             k_sum[k] = (x + point.0, y + point.1, n + 1.);
         }
@@ -67,23 +43,6 @@ impl KMeans {
             let x = x / n;
             let y = y / n;
             self.ks[i] = (x, y);
-        }
-    }
-
-    fn color(i: usize) -> Color {
-        const COLORS: [Color; 6] = [
-            Color::GREEN,
-            Color::BLUE,
-            Color::RED,
-            Color::CYAN,
-            Color::MAGENTA,
-            Color::YELLOW,
-        ];
-
-        if i >= COLORS.len() {
-            Color::WHITE
-        } else {
-            COLORS[i]
         }
     }
 
@@ -98,16 +57,17 @@ impl KMeans {
         .expect("Failed to draw outline");
         let size = size - 10.;
 
-        for i in 0..self.points.len() {
-            let point = self.points[i];
-            let k_i = self.nearest_k(&point);
+        let colors = gen_colors(self.ks.len());
+
+        for point in self.points.iter() {
+            let k_i = nearest_k(&self.ks, point);
 
             mb.circle(
                 DrawMode::stroke(1.0),
                 Vec2::new(point.0 * size, point.1 * size),
                 size * 0.005,
                 1.0,
-                Self::color(k_i),
+                colors[k_i],
             )
             .expect("Failed to paint Point");
         }
@@ -118,7 +78,7 @@ impl KMeans {
                 Vec2::new(point.0 * size, point.1 * size),
                 size * 0.005,
                 1.0,
-                Self::color(i),
+                colors[i],
             )
             .expect("Failed to paint Point");
         }
@@ -146,6 +106,31 @@ impl EventHandler for KMeans {
         canvas.finish(ctx)
     }
 
+    fn mouse_button_down_event(
+        &mut self,
+        ctx: &mut Context,
+        button: MouseButton,
+        x: f32,
+        y: f32,
+    ) -> Result<(), GameError> {
+        let (w, h) = ctx.gfx.size();
+        let size = w.min(h) - 10.;
+        let click = (x / size, y / size);
+        let radius2 = 0.005 * 0.005;
+
+        match button {
+            MouseButton::Left => self.points.push(click),
+            MouseButton::Middle => self.ks.push(click),
+            MouseButton::Right => {
+                self.points.retain(|p| distance2(&click, p) > radius2);
+                self.ks.retain(|p| distance2(&click, p) > radius2);
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
     fn key_down_event(
         &mut self,
         ctx: &mut Context,
@@ -159,49 +144,9 @@ impl EventHandler for KMeans {
                 self.ks.clear();
                 self.points.clear();
             }
-            Key::Character(c) => match &*c {
-                "r" => self.random(100, 6),
-                _ => {}
-            },
+            Key::Character(c) if c == "r" => self.random(100, 6),
             _ => {}
         }
-        Ok(())
-    }
-
-    fn mouse_button_down_event(
-        &mut self,
-        ctx: &mut Context,
-        button: MouseButton,
-        x: f32,
-        y: f32,
-    ) -> Result<(), GameError> {
-        let (w, h) = ctx.gfx.size();
-        let size = w.min(h) - 10.;
-        let click = (x / size, y / size);
-        println!("Click: {}|{} = {:?}", x, y, click);
-        let radius = 0.005;
-        let radius2 = radius * radius;
-
-        match button {
-            MouseButton::Left => self.points.push(click),
-            MouseButton::Middle => self.ks.push(click),
-            MouseButton::Right => {
-                self.points = self
-                    .points
-                    .iter()
-                    .filter(|p| Self::distance2(&click, p) > radius2)
-                    .map(|p| *p)
-                    .collect();
-                self.ks = self
-                    .ks
-                    .iter()
-                    .filter(|p| Self::distance2(&click, p) > radius2)
-                    .map(|p| *p)
-                    .collect();
-            }
-            _ => {}
-        }
-
         Ok(())
     }
 

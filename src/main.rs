@@ -1,4 +1,5 @@
 mod kmeans;
+mod utils;
 
 use crate::kmeans::KMeans;
 use ggez::ContextBuilder;
