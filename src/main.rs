@@ -9,6 +9,7 @@ fn main() {
     let mut conf = Conf::new();
     conf.window_setup.title = "KMeans".to_string();
     conf.window_mode.fullscreen_type = FullscreenType::Desktop;
+    conf.window_setup.vsync = true;
     let (mut ctx, event_loop) = ContextBuilder::new("kmeans", "David Schmidt")
         .default_conf(conf)
         .build()

@@ -70,7 +70,7 @@ impl KMeans {
         }
     }
 
-    fn build_mesh(&self, ctx: &mut Context, size: f32) -> Mesh {
+    fn color(i: usize) -> Color {
         const COLORS: [Color; 6] = [
             Color::GREEN,
             Color::BLUE,
@@ -79,6 +79,15 @@ impl KMeans {
             Color::MAGENTA,
             Color::YELLOW,
         ];
+
+        if i >= COLORS.len() {
+            Color::WHITE
+        } else {
+            COLORS[i]
+        }
+    }
+
+    fn build_mesh(&self, ctx: &mut Context, size: f32) -> Mesh {
         let mut mb = MeshBuilder::new();
 
         mb.rectangle(
@@ -98,7 +107,7 @@ impl KMeans {
                 Vec2::new(point.0 * size, point.1 * size),
                 size * 0.005,
                 1.0,
-                COLORS[k_i],
+                Self::color(k_i),
             )
             .expect("Failed to paint Point");
         }
@@ -109,7 +118,7 @@ impl KMeans {
                 Vec2::new(point.0 * size, point.1 * size),
                 size * 0.005,
                 1.0,
-                COLORS[i],
+                Self::color(i),
             )
             .expect("Failed to paint Point");
         }
@@ -146,6 +155,14 @@ impl EventHandler for KMeans {
         match input.event.logical_key {
             Key::Named(NamedKey::Enter) => self.iterate(),
             Key::Named(NamedKey::Escape) => ctx.request_quit(),
+            Key::Named(NamedKey::Backspace) => {
+                self.ks.clear();
+                self.points.clear();
+            }
+            Key::Character(c) => match &*c {
+                "r" => self.random(100, 6),
+                _ => {}
+            },
             _ => {}
         }
         Ok(())
@@ -153,11 +170,38 @@ impl EventHandler for KMeans {
 
     fn mouse_button_down_event(
         &mut self,
-        _ctx: &mut Context,
-        _button: MouseButton,
-        _x: f32,
-        _y: f32,
+        ctx: &mut Context,
+        button: MouseButton,
+        x: f32,
+        y: f32,
     ) -> Result<(), GameError> {
+        let (w, h) = ctx.gfx.size();
+        let size = w.min(h) - 10.;
+        let click = (x / size, y / size);
+        println!("Click: {}|{} = {:?}", x, y, click);
+        let radius = 0.005;
+        let radius2 = radius * radius;
+
+        match button {
+            MouseButton::Left => self.points.push(click),
+            MouseButton::Middle => self.ks.push(click),
+            MouseButton::Right => {
+                self.points = self
+                    .points
+                    .iter()
+                    .filter(|p| Self::distance2(&click, p) > radius2)
+                    .map(|p| *p)
+                    .collect();
+                self.ks = self
+                    .ks
+                    .iter()
+                    .filter(|p| Self::distance2(&click, p) > radius2)
+                    .map(|p| *p)
+                    .collect();
+            }
+            _ => {}
+        }
+
         Ok(())
     }
 
