@@ -1,6 +1,10 @@
 use ggez::graphics::Color;
 
 pub fn gen_colors(count: usize) -> Vec<Color> {
+    if count == 0 {
+        return vec![Color::WHITE];
+    }
+
     let h_to_rgb = |h: f32| {
         let h6 = h * 6.0;
         let sector = h6 as u32;
